@@ -85,10 +85,8 @@ rb_wcat_open(int argc, VALUE *argv, VALUE self)
 
 	rb_iv_set(self, "@cat", INT2NUM(cat));
 
-	if (rb_block_given_p()) {
-		rb_yield(self);
-		cat_close(cat);
-	}
+	if (rb_block_given_p())
+		rb_ensure(rb_yield, self, cat_close, cat);
 
 	return(self);
 }
