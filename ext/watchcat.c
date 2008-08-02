@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Andre Nathan <andre@digirati.com.br>
+ * Copyright (c) 2006, 2007, 2008 Andre Nathan <andre@digirati.com.br>
  * 
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -24,10 +24,10 @@
 static VALUE
 rb_wcat_open(int argc, VALUE *argv, VALUE self)
 {
-    int sock, id, timeout, signal;
+    int sock, timeout, signal;
     char *signame;
     const char *info;
-    VALUE opt, vtimeout, vsignal, vinfo, vsiglist, mSignal;
+    VALUE opt, vtimeout, vsignal, vinfo, vdevice, vsiglist, mSignal;
 
     rb_scan_args(argc, argv, "01", &opt);
     if (NIL_P(opt)) {
@@ -43,15 +43,15 @@ rb_wcat_open(int argc, VALUE *argv, VALUE self)
     signal = SIGKILL;
     info = NULL;
     
-    vtimeout = rb_hash_aref(opt, ID2SYM(rb_intern("timeout")));
+    vtimeout = rb_hash_aref(opt, SYMBOL("timeout"));
     if (!NIL_P(vtimeout)) {
         if (FIXNUM_P(vtimeout))
             timeout = NUM2INT(vtimeout);
         else
-            rb_raise(rb_eTypeError, "timeout must be an integer");
+            rb_raise(rb_eArgError, "timeout must be an integer");
     }
 
-    vsignal = rb_hash_aref(opt, ID2SYM(rb_intern("signal")));
+    vsignal = rb_hash_aref(opt, SYMBOL("signal"));
     if (!NIL_P(vsignal)) {
         switch (TYPE(vsignal)) {
         case T_FIXNUM:
@@ -63,22 +63,26 @@ rb_wcat_open(int argc, VALUE *argv, VALUE self)
                 signame += 3;
                 vsignal = rb_str_new2(signame);
             }
-            id = rb_intern("Signal");
-            mSignal = rb_const_get(rb_cObject, id);
-            id = rb_intern("list");
-            vsiglist = rb_funcall(mSignal, id, 0);
-            id = rb_intern("fetch");
-            vsignal = rb_funcall(vsiglist, id, 1, vsignal);
-            signal = NUM2INT(vsignal);
+            mSignal = rb_const_get(rb_cObject, rb_intern("Signal"));
+            vsiglist = rb_funcall(mSignal, rb_intern("list"), 0);
+            vsignal = rb_hash_aref(vsiglist, vsignal);
+            if (NIL_P(vsignal))
+                rb_raise(rb_eArgError, "invalid signal name");
+            else
+                signal = NUM2INT(vsignal);
             break;
         default:
-            rb_raise(rb_eTypeError, "signal must be an integer or a string");
+            rb_raise(rb_eArgError, "signal must be an integer or a string");
         }
     }
 
-    vinfo = rb_hash_aref(opt, ID2SYM(rb_intern("info")));
+    vinfo = rb_hash_aref(opt, SYMBOL("info"));
     if (!NIL_P(vinfo))
         info = StringValuePtr(vinfo);
+
+    vdevice = rb_hash_aref(opt, SYMBOL("device"));
+    if (!NIL_P(vdevice))
+        cat_set_device(StringValuePtr(vdevice));
 
     sock = cat_open1(timeout, signal, info);
     if (sock == -1)
