@@ -4,6 +4,8 @@ require 'watchcat'
 cat = Watchcat.new(:timeout => 5, :signal => 'KILL', :info => 'rubykill!')
 loop do
   # Do something that might be slow.
+  sleep 4 + rand(3)
+  puts 'survived'
   cat.heartbeat
 end
 cat.close # clean cat's litter box.
@@ -12,6 +14,8 @@ cat.close # clean cat's litter box.
 Watchcat.new do |cat|
   loop do
     # Do something that might be slow.
+    sleep 4 + rand(3)
+    puts 'survived'
     cat.heartbeat
   end
 end
