@@ -19,20 +19,22 @@
 #include <ruby.h>
 #include <watchcat.h>
 
+#define SYMBOL(s) ID2SYM(rb_intern(s))
+
 static VALUE
 rb_wcat_open(int argc, VALUE *argv, VALUE self)
 {
-    int cat, id, timeout, signal;
+    int sock, id, timeout, signal;
     char *signame;
     const char *info;
     VALUE opt, vtimeout, vsignal, vinfo, vsiglist, mSignal;
 
     rb_scan_args(argc, argv, "01", &opt);
     if (NIL_P(opt)) {
-        cat = cat_open();
-        if (cat == -1)
+        sock = cat_open();
+        if (sock == -1)
             rb_sys_fail("cat_open");
-        rb_iv_set(self, "@cat", INT2NUM(cat));
+        rb_iv_set(self, "@sock", INT2NUM(sock));
         return(self);
     }
 
@@ -78,14 +80,14 @@ rb_wcat_open(int argc, VALUE *argv, VALUE self)
     if (!NIL_P(vinfo))
         info = StringValuePtr(vinfo);
 
-    cat = cat_open1(timeout, signal, info);
-    if (cat == -1)
+    sock = cat_open1(timeout, signal, info);
+    if (sock == -1)
         rb_sys_fail("cat_open");
 
-    rb_iv_set(self, "@cat", INT2NUM(cat));
+    rb_iv_set(self, "@sock", INT2NUM(sock));
 
     if (rb_block_given_p())
-        rb_ensure(rb_yield, self, cat_close, cat);
+        rb_ensure(rb_yield, self, cat_close, sock);
 
     return(self);
 }
@@ -93,8 +95,8 @@ rb_wcat_open(int argc, VALUE *argv, VALUE self)
 static VALUE
 rb_wcat_heartbeat(VALUE self)
 {
-    VALUE cCat = rb_iv_get(self, "@cat");
-    if (cat_heartbeat(NUM2INT(cCat)) == -1)
+    VALUE sock = rb_iv_get(self, "@sock");
+    if (cat_heartbeat(NUM2INT(sock)) == -1)
         rb_sys_fail("cat_heartbeat");
     return(Qnil);
 }
@@ -102,8 +104,8 @@ rb_wcat_heartbeat(VALUE self)
 static VALUE
 rb_wcat_close(VALUE self)
 {
-    VALUE cCat = rb_iv_get(self, "@cat");
-    if (cat_close(NUM2INT(cCat)) == -1)
+    VALUE sock = rb_iv_get(self, "@sock");
+    if (cat_close(NUM2INT(sock)) == -1)
         rb_sys_fail("cat_close");
     return(Qnil);
 }
