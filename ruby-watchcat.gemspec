@@ -2,7 +2,7 @@ require 'rubygems'
 
 spec = Gem::Specification.new do |s|
   s.name              = 'ruby-watchcat'
-  s.version           = '1.0.0'
+  s.version           = '1.0.1'
   s.platform          = Gem::Platform::LINUX_586
   s.summary           = 'A Ruby extension for libwatchcat'
   s.requirements      = %q{libwcat and watchcatd.}
@@ -23,4 +23,6 @@ end
 if __FILE__ == $0
   Gem.manage_gems
   Gem::Builder.new(spec).build
+else
+  spec
 end
