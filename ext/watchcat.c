@@ -87,7 +87,7 @@ rb_wcat_open(int argc, VALUE *argv, VALUE self)
     rb_iv_set(self, "@sock", INT2NUM(sock));
 
     if (rb_block_given_p())
-        rb_ensure(rb_yield, self, cat_close, sock);
+        rb_ensure(rb_yield, self, (void *)cat_close, sock);
 
     return(self);
 }
