@@ -3,7 +3,6 @@ require 'rubygems'
 spec = Gem::Specification.new do |s|
   s.name              = 'ruby-watchcat-pure'
   s.version           = '1.0.0'
-  s.platform          = Gem::Platform::RUBY
   s.summary           = 'A pure-ruby implementation of libwatchcat'
   s.requirements      = %q{watchcatd}
   s.files             = Dir['{README,{lib,examples}/**}']
