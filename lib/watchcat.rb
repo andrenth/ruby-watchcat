@@ -73,7 +73,9 @@ class Watchcat
     end
 
     @sock = UNIXSocket.new(device)
-    @sock.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+    if Fcntl.const_defined? :F_SETFD
+      @sock.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+    end
 
     msg = "version: 1\ntimeout: #{timeout}\nsignal: #{signal}"
     if info.nil?
