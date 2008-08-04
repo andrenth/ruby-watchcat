@@ -6,8 +6,9 @@ spec = Gem::Specification.new do |s|
   s.platform          = Gem::Platform::RUBY
   s.summary           = 'A pure-ruby implementation of libwatchcat'
   s.requirements      = %q{watchcatd}
-  s.files             = Dir.glob('{lib,examples}/**')
-  s.has_rdoc          = false
+  s.files             = Dir['{README,{lib,examples}/**}']
+  s.has_rdoc          = true
+  s.rdoc_options      << '--title' << 'Ruby/Watchcat' '--main' << 'README'
   s.author            = 'Andre Nathan'
   s.email             = 'andre@digirati.com.br'
   s.rubyforge_project = 'ruby-watchcat'
