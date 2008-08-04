@@ -1,4 +1,4 @@
-#
+#--
 # Copyright (c) 2008 Andre Nathan <andre@digirati.com.br>
 # 
 # Permission to use, copy, modify, and distribute this software for any
@@ -14,19 +14,40 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
 # $Id$
-#
+#++
 
 # Pure-ruby version of libwcat.
 
 require 'fcntl'
 require 'socket'
 
+#
+# Ruby/Watchcat is a library for the development of watchcatd-aware
+# applications. It requires watchcatd to be installed and running, and
+# communicates with it via UNIX sockets.
+#
 class Watchcat
   DEFAULT_TIMEOUT = 60
   DEFAULT_DEVICE  = '/dev/watchcat'
   DEFAULT_SIGNAL  = Signal.list['KILL']
 
-  def initialize(args = {})
+  # Create a new Watchcat object. The parameter hash may have the following
+  # symbols:
+  # +timeout+::
+  #   The timeout in seconds (the default is 60).
+  # +signal+::
+  #   A signal number or name (such as 'KILL' or 'SIGKILL') to be sent when
+  #   the timeout expires (the default is 9).
+  # +info+::
+  #   Information that will be displayed in the watchcatd logs (the default
+  #   is an empty string).
+  # +device+::
+  #   The watchcat device (the default is +/dev/watchcat+). Use for debugging
+  #   purposes.
+  #
+  # If a block is given, the Watchcat object will be yielded and automatically
+  # closed on block termination.
+  def initialize(args = {}) # :yield:
     timeout = args[:timeout] || DEFAULT_TIMEOUT
     device  = args[:device] || DEFAULT_DEVICE
     info    = args[:info] ? args[:info].to_s : ''
@@ -39,7 +60,7 @@ class Watchcat
     when nil
       signal = DEFAULT_SIGNAL
     when String
-      signal = Signal.list[args[:signal].sub(/^SIG_/, '')]
+      signal = Signal.list[args[:signal].sub(/^SIG/, '')]
       raise ArgumentError, "invalid signal name" if signal.nil?
     when Fixnum
       signal = args[:signal]
@@ -75,10 +96,12 @@ class Watchcat
     end
   end
 
+  # Send a heartbeat to watchcatd, telling it we're still alive.
   def heartbeat
     safe_write(@sock, '.')
   end
 
+  # Close communication with watchcatd.
   def close
     begin
       @sock.close
