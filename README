@@ -6,9 +6,11 @@ Ruby.
 Watchcatd is a watchdog-like daemon in the sense that it takes actions
 in situations where a machine is under heavy load and/or unresponsive.
 However, watchcatd isn't as drastic as the usual watchdog systems, which
-reboot the machine. Instead, all it does is sending a signal to a
-registered process (which by default is SIGKILL) if the process doesn't
+generally reboot the machine. Instead, all it does is sending a signal to
+a registered process (which by default is SIGKILL) if the process doesn't
 send it a heartbeat before a user-specified timeout.
+
+Ruby/Watchcatd allows a Ruby application to register itself with watchcatd.
 
 
 == Requirements
