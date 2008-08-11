@@ -126,8 +126,9 @@ private
       fd.syswrite(buf)
     rescue Errno::EINTR
       retry
+    ensure
+      Signal.trap('PIPE', act)
     end
-    Signal.trap('PIPE', act)
   end
 
   def safe_read(fd, len)
