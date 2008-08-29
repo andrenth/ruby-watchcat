@@ -60,46 +60,25 @@ class Watchcat
       raise ArgumentError, 'timeout must be an integer'
     end
 
-    case args[:signal]
-    when nil
-      signal = DEFAULT_SIGNAL
-    when String
-      signal = Signal.list[args[:signal].sub(/^SIG/, '')]
-      raise ArgumentError, "invalid signal name" if signal.nil?
-    when Fixnum
-      signal = args[:signal]
-    else
-      raise ArgumentError, "signal must be an integer or a string"
-    end
-
-    @sock = UNIXSocket.new(device)
-    if Fcntl.const_defined? :F_SETFD
-      @sock.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
-    end
-
-    msg = "version: 1\ntimeout: #{timeout}\nsignal: #{signal}"
-    if info.nil?
-      msg << "\n\n"
-    else
-      info.gsub!(/\n/, '_')
-      msg << "\ninfo: #{info}\n\n"
-    end
+    signal = signal_number(args[:signal])
+    @sock  = create_socket(device)
+    msg    = build_message(timeout, signal, info)
 
     safe_write(@sock, msg)
-    if safe_read(@sock, 256) == "ok\n"
-      if  block_given?
-        begin
-          yield(self)
-        ensure
-          @sock.close
-        end
-      end
-      return self
-    else
+    unless safe_read(@sock, 256) == "ok\n"
       @sock.close
-      # Probably not the best error, but it matches the C library.
+      # Probably not the best error, but it matches libwcat.
       raise Errno::EPERM
     end
+
+    if block_given?
+      begin
+        yield(self)
+      ensure
+        @sock.close
+      end
+    end
+    return self
   end
 
   # Send a heartbeat to watchcatd, telling it we're still alive.
@@ -120,11 +99,44 @@ class Watchcat
 
 private
 
+  def signal_number(value)
+    case value
+    when nil
+      signal = DEFAULT_SIGNAL
+    when String
+      signal = Signal.list[args[:signal].sub(/^SIG/, '')]
+      raise ArgumentError, "invalid signal name" if signal.nil?
+    when Fixnum
+      signal = args[:signal]
+    else
+      raise ArgumentError, "signal must be an integer or a string"
+    end
+  end
+
+  def create_socket(device)
+    sock = UNIXSocket.new(device)
+    if Fcntl.const_defined? :F_SETFD
+      sock.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+    end
+    return sock
+  end
+
+  def build_message(timeout, signal, info)
+    msg = "version: 1\ntimeout: #{timeout}\nsignal: #{signal}"
+    if info.nil?
+      msg << "\n\n"
+    else
+      info.gsub!(/\n/, '_')
+      msg << "\ninfo: #{info}\n\n"
+    end
+    return msg
+  end
+
   def safe_write(fd, buf)
     act = Signal.trap('PIPE', 'IGN')
     begin
-      if RUBY_PLATFORM.match /freebsd/i
-        sendmsg(fd, " #{buf}")  # XXX prepend an extra byte
+      if RUBY_PLATFORM =~ /freebsd/i
+        FreeBSD.sendmsg(fd, " #{buf}")  # XXX prepend an extra byte
       else
         fd.syswrite(buf)
       end
@@ -144,20 +156,68 @@ private
     end
     return buf
   end
+end
 
+module FreeBSD # :nodoc:
+  extend(self)
+
+  INT_SIZE    = [0].pack("i_").size
+  INT32_SIZE  = 4
+  SHORT_SIZE  = [0].pack("s_").size
+  CMGROUP_MAX = 16
+  ALIGNBYTES  = [0].pack("L_").size - 1
+
+private
+
+  def align(p, alignbytes = ALIGNBYTES)
+    (p + alignbytes) & ~alignbytes
+  end
+
+  def sizeof(p)
+    align(p, 3)
+  end
+
+  #
+  # This code depends on structs cmsghdr and cmsgcred being as shown below.
+  # It also depends on sendmsg(2) being syscall number 28 and on the
+  # SOL_SOCKET and SCM_CREDS macros having the same values as the constants
+  # defined below.
+  #
+  # struct cmsghdr {
+  #   socklen_t cmsg_len;  /* __uint32_t */
+  #   int   cmsg_level;    /* int        */
+  #   int   cmsg_type;     /* int        */
+  # };
+  #
+  # struct cmsgcred {
+  #   pid_t cmcred_pid;                    /* __int32_t       */
+  #   uid_t cmcred_uid;                    /* __uint32_t      */
+  #   uid_t cmcred_euid;                   /* __uint32_t      */
+  #   gid_t cmcred_gid;                    /* __uint32_t      */
+  #   short cmcred_ngroups;                /* short           */
+  #   gid_t cmcred_groups[CMGROUP_MAX];    /* __uint32_t * 16 */
+  # };
+  #
+
+  SYS_SENDMSG = 28
+  SOL_SOCKET  = 0xffff
+  SCM_CREDS   = 0x03
+
+  CMSGCRED_SIZE = sizeof(4*INT_SIZE + SHORT_SIZE + CMGROUP_MAX * INT32_SIZE)
+  CMSGHDR_SIZE  = sizeof(INT32_SIZE + 2 * INT_SIZE)
+
+public
+ 
   def sendmsg(fd, buf)
-    iov = [buf, buf.length].pack("pI_")
+    iov = [buf, buf.length].pack("pL_")
 
-    cmsg_len = 96       # CMSG_LEN(sizeof(struct cmsgcred))
-    cmsg_space = 96     # CMSG_SPACE(sizeof(struct cmsgcred))
-    cmsg_level = 0xffff # SOL_SOCKET
-    cmsg_type = 0x03    # SCM_CREDS
-    cmsg_data_len = 96 - 12
+    cmsg_space    = cmsg_space(CMSGCRED_SIZE)
+    cmsg_data_len = cmsg_space - INT32_SIZE - 2*INT_SIZE
 
     cmsghdr = ([
-      cmsg_len,
-      cmsg_level,
-      cmsg_type
+      cmsg_len(CMSGCRED_SIZE), # cmsg_len
+      SOL_SOCKET,              # cmsg_level
+      SCM_CREDS                # cmsg_type
     ] + [0] * cmsg_data_len).pack("I_i_i_C#{cmsg_data_len}")
 
     msg_control_ptr = pointer(cmsghdr)
@@ -171,12 +231,22 @@ private
       pointer(cmsghdr), # msg_control
       cmsg_space,       # msg_controllen
       0                 # msg_flags
-    ].pack("L_i_L_i_L_i_i_")
+    ].pack("L_L_L_L_L_L_L_")
 
-    syscall(28, fd.fileno, pointer(msghdr), 0)
+    syscall(SYS_SENDMSG, fd.fileno, pointer(msghdr), 0)
   end
+
+private
 
   def pointer(buf)
     [buf].pack("P").unpack("L_").first
+  end
+
+  def cmsg_len(l)
+    align(CMSGHDR_SIZE) + l
+  end
+  
+  def cmsg_space(l)
+    align(CMSGHDR_SIZE) + align(l)
   end
 end
