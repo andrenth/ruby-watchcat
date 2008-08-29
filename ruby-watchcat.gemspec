@@ -2,7 +2,7 @@ require 'rubygems'
 
 spec = Gem::Specification.new do |s|
   s.name              = 'ruby-watchcat'
-  s.version           = '1.0.1'
+  s.version           = '1.0.2'
   s.summary           = 'A Ruby extension for libwatchcat'
   s.requirements      = %q{libwcat and watchcatd.}
   s.files             = Dir['{README,{ext,examples}/**}']

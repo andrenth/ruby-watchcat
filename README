@@ -18,6 +18,8 @@ Ruby/Watchcatd allows a Ruby application to register itself with watchcatd.
 Ruby/Watchcatd was tested with Ruby versions >= 1.8.4 and requires watchcatd
 version 1.1 and libwcat version 1.0 to be installed (see References below).
 
+For FreeBSD support, you need at least watchcatd 1.2 (and libwcat 1.1 if you
+are using the C extension).
 
 == Installation
 
