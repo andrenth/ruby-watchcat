@@ -99,15 +99,16 @@ class Watchcat
 
 private
 
-  def signal_number(value)
-    case value
+  def signal_number(signal)
+    case signal
     when nil
-      signal = DEFAULT_SIGNAL
+      DEFAULT_SIGNAL
     when String
-      signal = Signal.list[args[:signal].sub(/^SIG/, '')]
+      signal = Signal.list[signal.sub(/^SIG/, '')]
       raise ArgumentError, "invalid signal name" if signal.nil?
+      signal
     when Fixnum
-      signal = args[:signal]
+      signal
     else
       raise ArgumentError, "signal must be an integer or a string"
     end
